@@ -8,7 +8,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./htpasswd:/etc/nginx/.htpasswd:ro
+      - ./.htpasswd:/etc/nginx/.htpasswd:ro
     networks:
       - traefik-net
     deploy:
