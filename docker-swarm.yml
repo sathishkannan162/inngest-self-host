@@ -10,7 +10,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./.htpasswd:/etc/nginx/.htpasswd:ro
     networks:
-      - traefik-net
+      - nginx-net
     deploy:
       placement:
         constraints:
@@ -31,15 +31,25 @@ services:
       - REDIS_URI=redis://redis:6379
       - INNGEST_DEV=0
     networks:
-      - traefik-net
+      - nginx-net
+    volumes:
+      - inngest-data:/usr/src/app/.inngest  # Adjust the path if needed for inngest data storage
 
   redis:
     image: redis:latest
     networks:
-      - traefik-net
+      - nginx-net
     deploy:
       replicas: 1
+    volumes:
+      - redis-data:/data
 
 networks:
-  traefik-net:
+  nginx-net:
     driver: overlay
+
+volumes:
+  redis-data:
+    driver: local  # Change to appropriate driver if using cloud storage or other persistent options
+  inngest-data:
+    driver: local

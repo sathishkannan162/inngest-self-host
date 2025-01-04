@@ -12,6 +12,8 @@ services:
       - INNGEST_DEV=0  
     ports:
       - "8288:8288"
+    volumes:
+      - inngest-db:/usr/src/app/.inngest
     depends_on:
       - redis
 
@@ -21,7 +23,6 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-      - inngest-db:/usr/src/app/.inngest
 
 volumes:
   redis-data:
