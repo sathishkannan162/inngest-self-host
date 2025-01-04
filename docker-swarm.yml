@@ -7,10 +7,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./.htpasswd:/etc/nginx/.htpasswd:ro
-      - certbot-ssl:/etc/letsencrypt:ro
-      - certbot-webroot:/var/www/certbot
+      - /var/www/html:/var/www/html:rw
     networks:
       - nginx-net
     deploy:
@@ -24,20 +24,6 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
-
-  certbot:
-    image: certbot/certbot:latest
-    environment:
-      - CERTBOT_EMAIL=sathishkannan162@gmail.com
-      - DOMAIN_NAME=inngest.sathishkannan.com
-    command: certonly --webroot --webroot-path=/var/www/certbot -d inngest.sathishkannan.com --agree-tos --non-interactive --quiet
-    volumes:
-      - certbot-ssl:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot  # Ensure this volume is mounted for SSL certificate validation
-    networks:
-      - nginx-net
-    deploy:
-      replicas: 1
 
   redis:
     image: redis:latest
@@ -68,8 +54,4 @@ volumes:
   redis-data:
     driver: local
   inngest-data:
-    driver: local
-  certbot-ssl:
-    driver: local
-  certbot-webroot:
     driver: local
