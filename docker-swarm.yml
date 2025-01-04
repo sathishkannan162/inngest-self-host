@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   nginx:
@@ -9,6 +9,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./.htpasswd:/etc/nginx/.htpasswd:ro
+      - certbot-ssl:/etc/letsencrypt:ro
     networks:
       - nginx-net
     deploy:
@@ -17,11 +18,34 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: '0.50'
+          cpus: "0.50"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
+
+  certbot:
+    image: certbot/certbot:latest
+    environment:
+      - CERTBOT_EMAIL=sathishkannan162@gmail.com
+      - DOMAIN_NAME=inngest.sathishkannan.com
+    command: certonly --webroot --webroot-path=/var/www/certbot -d inngest.sathishkannan.com --agree-tos --non-interactive --quiet
+    volumes:
+      - certbot-ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    networks:
+      - nginx-net
+    deploy:
+      replicas: 1
+
+  redis:
+    image: redis:latest
+    networks:
+      - nginx-net
+    deploy:
+      replicas: 1
+    volumes:
+      - redis-data:/data
 
   inngest:
     image: inngest-image
@@ -33,16 +57,7 @@ services:
     networks:
       - nginx-net
     volumes:
-      - inngest-data:/usr/src/app/.inngest  # Adjust the path if needed for inngest data storage
-
-  redis:
-    image: redis:latest
-    networks:
-      - nginx-net
-    deploy:
-      replicas: 1
-    volumes:
-      - redis-data:/data
+      - inngest-data:/usr/src/app/.inngest
 
 networks:
   nginx-net:
@@ -50,6 +65,10 @@ networks:
 
 volumes:
   redis-data:
-    driver: local  # Change to appropriate driver if using cloud storage or other persistent options
+    driver: local
   inngest-data:
+    driver: local
+  certbot-ssl:
+    driver: local
+  certbot-webroot:
     driver: local
