@@ -10,6 +10,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./.htpasswd:/etc/nginx/.htpasswd:ro
       - certbot-ssl:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot
     networks:
       - nginx-net
     deploy:
@@ -32,7 +33,7 @@ services:
     command: certonly --webroot --webroot-path=/var/www/certbot -d inngest.sathishkannan.com --agree-tos --non-interactive --quiet
     volumes:
       - certbot-ssl:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
+      - certbot-webroot:/var/www/certbot  # Ensure this volume is mounted for SSL certificate validation
     networks:
       - nginx-net
     deploy:
