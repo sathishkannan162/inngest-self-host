@@ -1,19 +1,14 @@
 version: '3.8'
 
 services:
-  traefik:
-    image: traefik:v2.9
+  nginx:
+    image: nginx:latest
     ports:
       - "80:80"
       - "443:443"
-    command:
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--providers.docker=true"
-      - "--providers.docker.swarmMode=true"
-      - "--providers.docker.exposedbydefault=false"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./htpasswd:/etc/nginx/.htpasswd:ro
     networks:
       - traefik-net
     deploy:
@@ -35,17 +30,6 @@ services:
       - SIGNING_KEY=923edcd52964f681533cb857ac2a70a983b57079fdd541fd876fde8e42d78f7c
       - REDIS_URI=redis://redis:6379
       - INNGEST_DEV=0
-    deploy:
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.inngest.rule=Host(`inngest.sathishkannan.com`)"
-        - "traefik.http.routers.inngest.entrypoints=web"
-        - "traefik.http.services.inngest.loadbalancer.server.port=8288"
-        - "traefik.http.routers.inngest.middlewares=auth"
-        # Basic Auth for user 'sathish' with password 'admin123'
-        # The password hash below can be generated using: htpasswd -nb sathish admin123
-        - "traefik.http.middlewares.auth.basicauth.users=sathish:$$apr1$$lYP6NKMG$$1bkg3NFQ0KTbcEXfTjOrZ."
-
     networks:
       - traefik-net
 
