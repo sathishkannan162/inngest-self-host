@@ -38,14 +38,13 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.inngest.rule=Host(`inngest.local`)"
+        - "traefik.http.routers.inngest.rule=Host(`inngest.sathishkannan.com`)"
         - "traefik.http.routers.inngest.entrypoints=web"
         - "traefik.http.services.inngest.loadbalancer.server.port=8288"
         - "traefik.http.routers.inngest.middlewares=auth"
         # Basic Auth for user 'sathish' with password 'admin123'
         # The password hash below can be generated using: htpasswd -nb sathish admin123
         - "traefik.http.middlewares.auth.basicauth.users=sathish:$$apr1$$lYP6NKMG$$1bkg3NFQ0KTbcEXfTjOrZ."
-
 
     networks:
       - traefik-net
