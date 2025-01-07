@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:latest
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+      volumes:
+      - name: redis-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inngest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inngest
+  template:
+    metadata:
+      labels:
+        app: inngest
+    spec:
+      containers:
+      - name: inngest
+        image: inngest-image
+        env:
+        - name: EVENT_KEY
+          value: "b8bc74f7312cb8653fa453ea2b643632"
+        - name: SIGNING_KEY
+          value: "923edcd52964f681533cb857ac2a70a983b57079fdd541fd876fde8e42d78f7c"
+        - name: REDIS_URI
+          value: "redis://redis:6379"
+        - name: INNGEST_DEV
+          value: "0"
+        ports:
+        - containerPort: 8288 
+        volumeMounts:
+        - name: inngest-data
+          mountPath: /usr/src/app/.inngest
+      volumes:
+      - name: inngest-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inngest-service
+spec:
+  selector:
+    app: inngest
+  ports:
+    - port: 80
+      targetPort: 8288
+      protocol: TCP
+---
+# Certbot renew CronJob (runs every 12 hours)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: certbot-renew
+spec:
+  schedule: "0 */12 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: certbot
+            image: certbot/certbot
+            args: ["renew", "--quiet"]
+            volumeMounts:
+            - name: letsencrypt
+              mountPath: /etc/letsencrypt
+            - name: certbot-www
+              mountPath: /var/www/certbot
+          restartPolicy: OnFailure
+          volumes:
+          - name: letsencrypt
+            emptyDir: {} # TODO: make this a persistent volume
+          - name: certbot-www
+            emptyDir: {} # TODO: make this a persistent volume
+---
+# Ingress with SSL, Basic Auth, and forced SSL redirect
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inngest-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: "basic"
+    nginx.ingress.kubernetes.io/auth-secret: "basic-auth"
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required - Inngest"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - inngest.sathishkannan.com
+    secretName: tls-secret
+  rules:
+  - host: inngest.sathishkannan.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: inngest-service
+            port:
+              number: 80
