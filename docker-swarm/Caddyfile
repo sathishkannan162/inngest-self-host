@@ -1,0 +1,8 @@
+inngest.sathishkannan.com {
+    reverse_proxy http://inngest:8288
+
+    basicauth / {
+        admin $2a$14$ZrIyKnO5K8zTcJkwJrZB.OPhQBKd9rWjqVUdO4sAoA/H/tBnQ32aK
+    }
+
+}
