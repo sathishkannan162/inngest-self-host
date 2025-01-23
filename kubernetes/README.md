@@ -8,3 +8,7 @@ Make sure cert manager is installed in your cluster before applying the kubernet
 
 - Run the following command to install ingress-nginx before apply the kubernetes file
 `kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml`
+
+# Need to fix
+- kubernetes deployment worked locally, but you cannot test https locally.
+- I tried deploying on 4gb aws machine, but it is not working. Need help with this.
