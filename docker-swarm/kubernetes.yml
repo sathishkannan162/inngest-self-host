@@ -1,0 +1,226 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inngest
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy-configmap
+  namespace: inngest
+data:
+  Caddyfile: |
+    inngest.sathishkannan.com {
+        reverse_proxy http://inngest:8288
+
+        basicauth / {
+            admin $2a$14$ZrIyKnO5K8zTcJkwJrZB.OPhQBKd9rWjqVUdO4sAoA/H/tBnQ32aK
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caddy
+  namespace: inngest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: caddy
+  template:
+    metadata:
+      labels:
+        app: caddy
+    spec:
+      containers:
+        - name: caddy
+          image: caddy:latest
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          volumeMounts:
+            - name: caddyfile-volume
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+            - name: caddy-data
+              mountPath: /data
+            - name: caddy-config
+              mountPath: /config
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+      volumes:
+        - name: caddyfile-volume
+          configMap:
+            name: caddy-configmap
+            items:
+              - key: Caddyfile
+                path: Caddyfile
+        - name: caddy-data
+          persistentVolumeClaim:
+            claimName: caddy-data-pvc
+        - name: caddy-config
+          persistentVolumeClaim:
+            claimName: caddy-config-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-service
+  namespace: inngest
+spec:
+  selector:
+    app: caddy
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: inngest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:latest
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: inngest
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inngest
+  namespace: inngest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inngest
+  template:
+    metadata:
+      labels:
+        app: inngest
+    spec:
+      containers:
+        - name: inngest
+          image: sathishkannan162/inngest:latest
+          env:
+            - name: EVENT_KEY
+              value: "b8bc74f7312cb8653fa453ea2b643632"
+            - name: SIGNING_KEY
+              value: "923edcd52964f681533cb857ac2a70a983b57079fdd541fd876fde8e42d78f7c"
+            - name: REDIS_URI
+              value: "redis://redis-service:6379"
+            - name: INNGEST_DEV
+              value: "0"
+          volumeMounts:
+            - name: inngest-data
+              mountPath: /usr/src/app/.inngest
+      volumes:
+        - name: inngest-data
+          persistentVolumeClaim:
+            claimName: inngest-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inngest-service
+  namespace: inngest
+spec:
+  selector:
+    app: inngest
+  ports:
+    - port: 8288
+      targetPort: 8288
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: caddy-data-pvc
+  namespace: inngest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: caddy-config-pvc
+  namespace: inngest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: inngest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: inngest-data-pvc
+  namespace: inngest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
