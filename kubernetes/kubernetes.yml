@@ -32,9 +32,8 @@ metadata:
   namespace: inngest
 type: Opaque
 data:
-  # This is base64-encoded of "admin:$apr1$ZP9tO83p$yCHhpLeXXpL12A3vZU1Fq."
-  # (Just an example; generate your own)
-  auth: YWRtaW46JGFwcjEkWlA5dE9PMGdwJHlDSGhwTGVYWHAxMkEzdlpVMUZxLg==
+  # This is base64-encoded of "foo:foo"
+  auth: Zm9vOiRhcHIxJGFxRE84djRwJDZrdDRscDVHdjU1T3NWaGM2YmtPUjEK
 ---
 apiVersion: apps/v1
 kind: Deployment
