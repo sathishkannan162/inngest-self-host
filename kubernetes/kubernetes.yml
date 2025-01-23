@@ -3,89 +3,38 @@ kind: Namespace
 metadata:
   name: inngest
 ---
-apiVersion: v1
-kind: ConfigMap
+# A ClusterIssuer for Let's Encrypt (production). Make sure Cert Manager is installed in the cluster.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
 metadata:
-  name: caddy-configmap
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Replace with your email
+    email: admin@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# A Secret containing the basic auth credentials for NGINX
+# This example encodes user 'admin' with password 'password' using htpasswd.
+# You can generate your own with:
+#   htpasswd -nb admin your-password
+# Then base64-encode the entire string "admin:<hash>"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth-secret
   namespace: inngest
+type: Opaque
 data:
-  Caddyfile: |
-    inngest.sathishkannan.com {
-        reverse_proxy http://inngest:8288
-
-        basicauth / {
-            admin $2a$14$ZrIyKnO5K8zTcJkwJrZB.OPhQBKd9rWjqVUdO4sAoA/H/tBnQ32aK
-        }
-    }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: caddy
-  namespace: inngest
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: caddy
-  template:
-    metadata:
-      labels:
-        app: caddy
-    spec:
-      containers:
-        - name: caddy
-          image: caddy:latest
-          ports:
-            - name: http
-              containerPort: 80
-            - name: https
-              containerPort: 443
-          volumeMounts:
-            - name: caddyfile-volume
-              mountPath: /etc/caddy/Caddyfile
-              subPath: Caddyfile
-            - name: caddy-data
-              mountPath: /data
-            - name: caddy-config
-              mountPath: /config
-          resources:
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
-            requests:
-              cpu: "250m"
-              memory: "128Mi"
-      volumes:
-        - name: caddyfile-volume
-          configMap:
-            name: caddy-configmap
-            items:
-              - key: Caddyfile
-                path: Caddyfile
-        - name: caddy-data
-          persistentVolumeClaim:
-            claimName: caddy-data-pvc
-        - name: caddy-config
-          persistentVolumeClaim:
-            claimName: caddy-config-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: caddy-service
-  namespace: inngest
-spec:
-  selector:
-    app: caddy
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80
-    - name: https
-      port: 443
-      targetPort: 443
-  type: LoadBalancer
+  # This is base64-encoded of "admin:$apr1$ZP9tO83p$yCHhpLeXXpL12A3vZU1Fq."
+  # (Just an example; generate your own)
+  auth: YWRtaW46JGFwcjEkWlA5dE9PMGdwJHlDSGhwTGVYWHAxMkEzdlpVMUZxLg==
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -110,6 +59,13 @@ spec:
           volumeMounts:
             - name: redis-data
               mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       volumes:
         - name: redis-data
           persistentVolumeClaim:
@@ -159,6 +115,13 @@ spec:
           volumeMounts:
             - name: inngest-data
               mountPath: /usr/src/app/.inngest
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "1"
       volumes:
         - name: inngest-data
           persistentVolumeClaim:
@@ -177,29 +140,35 @@ spec:
       targetPort: 8288
   type: ClusterIP
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
+# Define an Ingress that routes to our inngest-service.
+# Cert Manager will handle TLS certificate provisioning/renewal using Let's Encrypt.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: caddy-data-pvc
+  name: inngest-ingress
   namespace: inngest
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: "basic"
+    nginx.ingress.kubernetes.io/auth-secret: "basic-auth-secret"
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
 spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: caddy-config-pvc
-  namespace: inngest
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
+  tls:
+    - hosts:
+        - inngest.sathishkannan.com
+      secretName: inngest-tls
+  rules:
+    - host: inngest.sathishkannan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inngest-service
+                port:
+                  number: 8288
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
