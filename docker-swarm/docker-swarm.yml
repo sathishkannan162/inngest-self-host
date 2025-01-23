@@ -39,7 +39,7 @@ services:
       retries: 5
 
   inngest:
-    image: inngest-image
+    image: sathishkannan162/inngest:latest
     environment:
       EVENT_KEY: b8bc74f7312cb8653fa453ea2b643632
       SIGNING_KEY: 923edcd52964f681533cb857ac2a70a983b57079fdd541fd876fde8e42d78f7c
